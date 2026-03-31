@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Teste Zentrix 2</title>
+</head>
+<body style="font-family:Arial;background:#111;color:#eee;padding:30px;">
+
+<h2>Teste de leitura — planilha pública</h2>
+<button onclick="testar()" style="padding:10px 20px;font-size:16px;cursor:pointer;">Testar</button>
+<pre id="resultado" style="margin-top:20px;background:#222;padding:16px;white-space:pre-wrap;word-break:break-all;"></pre>
+
+<script>
+const SHEET_ID = '1Eqebkjx3t-7P0dJ2OkcwJ0-NMYXb2atipndzeEDh7qQ';
+
+function log(msg) {
+  document.getElementById('resultado').textContent += msg + '\n';
+}
+
+function parseCSV(text) {
+  return text.trim().split('\n').map(line => {
+    // Trata campos com aspas e vírgulas dentro
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        inQuotes = !inQuotes;
+      } else if (ch === ',' && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += ch;
+      }
+    }
+    result.push(current.trim());
+    return result;
+  });
+}
+
+// Callback JSONP chamado pelo Google
+window.handleData = function(data) {
+  try {
+    const cols = data.table.cols.map(c => c.label);
+    const rows = data.table.rows;
+
+    log('✅ FUNCIONOU via JSONP!\n');
+    log('Colunas (' + cols.length + '): ' + cols.join(' | '));
+    log('Total de linhas: ' + rows.length);
+    log('\nPrimeiras 5 linhas:');
+    rows.slice(0, 5).forEach((row, i) => {
+      const vals = row.c.map(cell => (cell && cell.v != null ? String(cell.v) : '')).join(' | ');
+      log('  [' + (i+1) + '] ' + vals);
+    });
+  } catch(e) {
+    log('❌ Erro ao processar JSONP: ' + e.message);
+    tentarFetch();
+  }
+  log('\n--- Concluído ---');
+  const s = document.getElementById('jsonp-script');
+  if (s) s.remove();
+};
+
+function tentarFetch() {
+  log('\nTentando via fetch...');
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=ENTRADA&tqx=out:csv`;
+  fetch(url)
+    .then(r => r.text())
+    .then(text => {
+      const rows = parseCSV(text);
+      log('✅ FUNCIONOU via fetch!\n');
+      log('Colunas: ' + rows[0].join(' | '));
+      log('Total de linhas de dados: ' + (rows.length - 1));
+      log('\nPrimeiras 5 linhas:');
+      rows.slice(1, 6).forEach((row, i) => {
+        log('  [' + (i+1) + '] ' + row.join(' | '));
+      });
+      log('\n--- Concluído ---');
+    })
+    .catch(e => {
+      log('❌ fetch também falhou: ' + e.message);
+      log('\n--- Concluído ---');
+    });
+}
+
+function testar() {
+  document.getElementById('resultado').textContent = 'Testando...\n';
+
+  const old = document.getElementById('jsonp-script');
+  if (old) old.remove();
+
+  // Tenta JSONP primeiro
+  log('Tentando JSONP...');
+  const script = document.createElement('script');
+  script.id = 'jsonp-script';
+  script.src = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=ENTRADA&tqx=out:json&callback=handleData`;
+  script.onerror = () => {
+    log('JSONP bloqueado. Tentando fetch...');
+    tentarFetch();
+  };
+
+  // Se em 5 segundos não chamar o callback, tenta fetch
+  const timeout = setTimeout(() => {
+    if (document.getElementById('resultado').textContent.includes('Tentando JSONP')) {
+      log('JSONP sem resposta. Tentando fetch...');
+      tentarFetch();
+    }
+  }, 5000);
+
+  window._clearJsonpTimeout = () => clearTimeout(timeout);
+
+  document.body.appendChild(script);
+}
+</script>
+</body>
+</html>
