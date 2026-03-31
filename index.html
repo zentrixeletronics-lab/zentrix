@@ -2,116 +2,455 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Teste Zentrix 2</title>
-</head>
-<body style="font-family:Arial;background:#111;color:#eee;padding:30px;">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zentrix Electronics — Painel de Controle</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; background: #0d1117; color: #e6f1fb; min-height: 100vh; }
 
-<h2>Teste de leitura — planilha pública</h2>
-<button onclick="testar()" style="padding:10px 20px;font-size:16px;cursor:pointer;">Testar</button>
-<pre id="resultado" style="margin-top:20px;background:#222;padding:16px;white-space:pre-wrap;word-break:break-all;"></pre>
+  header {
+    background: #042C53;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 2px solid #378ADD;
+  }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo svg { width: 36px; height: 36px; }
+  .logo-text { font-size: 20px; font-weight: bold; letter-spacing: 3px; color: #E6F1FB; }
+  .logo-sub { font-size: 10px; letter-spacing: 4px; color: #378ADD; }
+  .last-update { font-size: 11px; color: #85B7EB; }
+  .btn-refresh {
+    background: #185FA5; border: none; color: #E6F1FB;
+    padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  }
+  .btn-refresh:hover { background: #378ADD; }
+
+  .container { padding: 20px 24px; max-width: 1200px; margin: 0 auto; }
+
+  .filtros { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+  .filtros select, .filtros input {
+    background: #0d2137; border: 1px solid #185FA5; color: #E6F1FB;
+    padding: 8px 12px; border-radius: 6px; font-size: 13px;
+  }
+  .filtros label { font-size: 12px; color: #85B7EB; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .card {
+    background: #042C53; border-radius: 10px; padding: 16px;
+    border-left: 3px solid #378ADD; text-align: center;
+  }
+  .card .label { font-size: 11px; color: #85B7EB; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; }
+  .card .value { font-size: 28px; font-weight: bold; color: #E6F1FB; }
+  .card .sub { font-size: 11px; color: #378ADD; margin-top: 4px; }
+  .card.green { border-left-color: #1D9E75; }
+  .card.green .value { color: #9FE1CB; }
+  .card.amber { border-left-color: #EF9F27; }
+  .card.amber .value { color: #FAC775; }
+  .card.red { border-left-color: #E24B4A; }
+  .card.red .value { color: #F09595; }
+
+  .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+  .chart-box {
+    background: #042C53; border-radius: 10px; padding: 16px;
+    border: 1px solid #0C447C;
+  }
+  .chart-box h3 { font-size: 13px; color: #85B7EB; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 1px; }
+  .chart-box canvas { max-height: 220px; }
+  .chart-full { grid-column: 1 / -1; }
+
+  .table-box { background: #042C53; border-radius: 10px; padding: 16px; border: 1px solid #0C447C; margin-bottom: 24px; }
+  .table-box h3 { font-size: 13px; color: #85B7EB; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 1px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: #0C447C; color: #B5D4F4; padding: 10px 12px; text-align: left; font-weight: normal; }
+  td { padding: 9px 12px; border-bottom: 1px solid #0a1a2e; color: #E6F1FB; }
+  tr:hover td { background: #0a1e35; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;
+  }
+  .badge.aberto { background: #1a3a5c; color: #85B7EB; }
+  .badge.fechado { background: #0a3a2a; color: #9FE1CB; }
+  .badge.pix { background: #1a2a4c; color: #B5D4F4; }
+  .badge.dinheiro { background: #2a2a0a; color: #FAC775; }
+
+  .loading { text-align: center; padding: 60px; color: #85B7EB; font-size: 16px; }
+  .error { text-align: center; padding: 40px; color: #F09595; }
+
+  .config-box {
+    background: #042C53; border-radius: 10px; padding: 20px;
+    border: 2px dashed #185FA5; margin-bottom: 24px; text-align: center;
+  }
+  .config-box h3 { color: #378ADD; margin-bottom: 10px; }
+  .config-box input {
+    background: #0d2137; border: 1px solid #185FA5; color: #E6F1FB;
+    padding: 10px 14px; border-radius: 6px; font-size: 14px; width: 480px; max-width: 100%;
+  }
+  .config-box .btn-ok {
+    background: #185FA5; border: none; color: white;
+    padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; margin-left: 8px;
+  }
+  .config-box .btn-ok:hover { background: #378ADD; }
+  .config-box p { font-size: 12px; color: #85B7EB; margin-top: 8px; }
+
+  @media (max-width: 600px) {
+    .charts { grid-template-columns: 1fr; }
+    .cards { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 70 70" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="35,4 62,19.5 62,50.5 35,66 8,50.5 8,19.5" fill="none" stroke="#378ADD" stroke-width="1.8"/>
+      <polygon points="35,14 55,25.5 55,44.5 35,56 15,44.5 15,25.5" fill="#0C447C" stroke="#378ADD" stroke-width="1"/>
+      <polyline points="23,25 47,25 23,45 47,45" fill="none" stroke="#85B7EB" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div>
+      <div class="logo-text">ZENTRIX</div>
+      <div class="logo-sub">ELECTRONICS</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <span class="last-update" id="last-update">Aguardando dados...</span>
+    <button class="btn-refresh" onclick="carregarDados()">↻ Atualizar</button>
+  </div>
+</header>
+
+<div class="container">
+
+  <div class="config-box" id="config-box">
+    <h3>Configuração da Planilha</h3>
+    <p style="margin-bottom:12px;color:#B5D4F4;">Cole o ID da sua planilha do Google Sheets e clique em Conectar.</p>
+    <input type="text" id="sheet-id-input" placeholder="ID da planilha — ex: 1Eqebkjx3t-7P0dJ2OkcwJ0..." value="1Eqebkjx3t-7P0dJ2OkcwJ0-NMYXb2atipndzeEDh7qQ"/>
+    <button class="btn-ok" onclick="conectar()">Conectar</button>
+    <p>A planilha precisa estar com acesso público de leitura (Compartilhar → Qualquer pessoa com o link → Leitor)</p>
+  </div>
+
+  <div id="dashboard" style="display:none;">
+
+    <div class="filtros">
+      <div>
+        <label>Período</label><br>
+        <select id="filtro-periodo" onchange="aplicarFiltros()">
+          <option value="todos">Todos</option>
+          <option value="7">Últimos 7 dias</option>
+          <option value="30" selected>Últimos 30 dias</option>
+          <option value="90">Últimos 90 dias</option>
+          <option value="365">Este ano</option>
+        </select>
+      </div>
+      <div>
+        <label>Status</label><br>
+        <select id="filtro-status" onchange="aplicarFiltros()">
+          <option value="todos">Todos</option>
+          <option value="Aberto">Em aberto</option>
+          <option value="Fechado">Finalizados</option>
+        </select>
+      </div>
+      <div>
+        <label>Buscar cliente</label><br>
+        <input type="text" id="filtro-cliente" placeholder="Nome do cliente..." oninput="aplicarFiltros()" style="padding:8px 12px;">
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="label">Total de OS</div><div class="value" id="c-total">0</div><div class="sub">registradas</div></div>
+      <div class="card amber"><div class="label">Em aberto</div><div class="value" id="c-aberto">0</div><div class="sub">aguardando</div></div>
+      <div class="card green"><div class="label">Faturamento</div><div class="value" id="c-fat">R$0</div><div class="sub">valor cobrado</div></div>
+      <div class="card green"><div class="label">Lucro bruto</div><div class="value" id="c-lucro">R$0</div><div class="sub">cobrado − custo</div></div>
+      <div class="card"><div class="label">Ticket médio</div><div class="value" id="c-ticket">R$0</div><div class="sub">por OS fechada</div></div>
+      <div class="card red"><div class="label">A receber</div><div class="value" id="c-receber">R$0</div><div class="sub">não pago</div></div>
+    </div>
+
+    <div class="charts">
+      <div class="chart-box">
+        <h3>OS por mês</h3>
+        <canvas id="chart-mes"></canvas>
+      </div>
+      <div class="chart-box">
+        <h3>Faturamento por mês</h3>
+        <canvas id="chart-fat-mes"></canvas>
+      </div>
+      <div class="chart-box">
+        <h3>Equipamentos mais atendidos</h3>
+        <canvas id="chart-equipamentos"></canvas>
+      </div>
+      <div class="chart-box">
+        <h3>Forma de pagamento</h3>
+        <canvas id="chart-pagamento"></canvas>
+      </div>
+      <div class="chart-box chart-full">
+        <h3>Defeitos mais comuns</h3>
+        <canvas id="chart-defeitos"></canvas>
+      </div>
+    </div>
+
+    <div class="table-box">
+      <h3>Ordens de Serviço — detalhado</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>OS</th><th>Cliente</th><th>Equipamento</th><th>Defeito</th>
+            <th>Entrada</th><th>Status</th><th>Serviço</th><th>Valor</th><th>Pagto</th><th>Pago</th>
+          </tr>
+        </thead>
+        <tbody id="tabela-os"></tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <div id="loading" class="loading" style="display:none;">Carregando dados da planilha...</div>
+  <div id="error-msg" class="error" style="display:none;"></div>
+
+</div>
 
 <script>
-const SHEET_ID = '1Eqebkjx3t-7P0dJ2OkcwJ0-NMYXb2atipndzeEDh7qQ';
+let SHEET_ID = '1Eqebkjx3t-7P0dJ2OkcwJ0-NMYXb2atipndzeEDh7qQ';
+let dadosEntrada = [];
+let dadosSaida = [];
+let charts = {};
 
-function log(msg) {
-  document.getElementById('resultado').textContent += msg + '\n';
+function conectar() {
+  const input = document.getElementById('sheet-id-input').value.trim();
+  if (input) {
+    SHEET_ID = input;
+    document.getElementById('config-box').style.display = 'none';
+    carregarDados();
+  }
 }
 
 function parseCSV(text) {
-  return text.trim().split('\n').map(line => {
-    // Trata campos com aspas e vírgulas dentro
-    const result = [];
+  const lines = text.trim().split('\n');
+  const result = [];
+  for (const line of lines) {
+    const row = [];
     let current = '';
     let inQuotes = false;
     for (let i = 0; i < line.length; i++) {
       const ch = line[i];
-      if (ch === '"') {
-        inQuotes = !inQuotes;
-      } else if (ch === ',' && !inQuotes) {
-        result.push(current.trim());
-        current = '';
-      } else {
-        current += ch;
-      }
+      if (ch === '"') { inQuotes = !inQuotes; }
+      else if (ch === ',' && !inQuotes) { row.push(current.trim()); current = ''; }
+      else { current += ch; }
     }
-    result.push(current.trim());
-    return result;
+    row.push(current.trim());
+    result.push(row);
+  }
+  return result;
+}
+
+async function fetchSheet(aba) {
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${encodeURIComponent(aba)}&tqx=out:csv`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Erro ao buscar aba: ' + aba);
+  const text = await res.text();
+  const rows = parseCSV(text);
+  if (rows.length < 2) return [];
+  const cols = rows[0].map(c => c.replace(/^"|"$/g, ''));
+  return rows.slice(1)
+    .map(r => {
+      const obj = {};
+      cols.forEach((col, i) => { obj[col] = (r[i] || '').replace(/^"|"$/g, ''); });
+      return obj;
+    })
+    .filter(r => Object.values(r).some(v => v !== ''));
+}
+
+async function carregarDados() {
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('error-msg').style.display = 'none';
+  try {
+    dadosEntrada = await fetchSheet('ENTRADA');
+    dadosSaida   = await fetchSheet('SAÍDA');
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    document.getElementById('last-update').textContent = 'Atualizado: ' + new Date().toLocaleTimeString('pt-BR');
+    aplicarFiltros();
+  } catch(e) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('error-msg').style.display = 'block';
+    document.getElementById('error-msg').innerHTML = `
+      <p style="font-size:16px;margin-bottom:12px;">Não foi possível carregar os dados.</p>
+      <p style="font-size:13px;color:#85B7EB;">Verifique se a planilha está compartilhada como pública (leitura):</p>
+      <p style="font-size:13px;color:#85B7EB;">Planilha → Compartilhar → Qualquer pessoa com o link → Leitor</p>
+      <button class="btn-refresh" onclick="document.getElementById('config-box').style.display='block';" style="margin-top:16px;">Reconfigurar</button>
+    `;
+  }
+}
+
+function parseData(str) {
+  if (!str) return null;
+  const m = String(str).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return new Date(m[3], m[2]-1, m[1]);
+  const d = new Date(str);
+  return isNaN(d) ? null : d;
+}
+
+function aplicarFiltros() {
+  const periodo = document.getElementById('filtro-periodo').value;
+  const status  = document.getElementById('filtro-status').value;
+  const cliente = document.getElementById('filtro-cliente').value.toLowerCase();
+  const hoje = new Date();
+
+  let entrada = dadosEntrada.filter(r => {
+    if (cliente && !(r['CLIENTE']||'').toLowerCase().includes(cliente)) return false;
+    if (status !== 'todos' && (r['STATUS']||'') !== status) return false;
+    if (periodo !== 'todos') {
+      const d = parseData(r['DATA DE ENTRADA']);
+      if (!d) return false;
+      const diff = (hoje - d) / 86400000;
+      if (diff > parseInt(periodo)) return false;
+    }
+    return true;
+  });
+
+  // Juntar entrada + saída pelo ID da OS
+  const saidaMap = {};
+  dadosSaida.forEach(r => { if (r['ID da OS']) saidaMap[r['ID da OS']] = r; });
+
+  const combined = entrada.map(e => ({ ...e, saida: saidaMap[e['OS']] || null }));
+
+  renderCards(combined);
+  renderCharts(combined);
+  renderTabela(combined);
+}
+
+function fmt(v) {
+  const n = parseFloat(String(v).replace(',','.')) || 0;
+  return 'R$' + n.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+function renderCards(data) {
+  const total   = data.length;
+  const abertos = data.filter(r => (r['STATUS']||'').toLowerCase().includes('aberto') || !r.saida).length;
+  let fat = 0, custo = 0, receber = 0;
+  data.forEach(r => {
+    if (r.saida) {
+      const v = parseFloat(String(r.saida['Valor cobrado']||'0').replace(',','.')) || 0;
+      const c = parseFloat(String(r.saida['Custo das peças']||'0').replace(',','.')) || 0;
+      fat += v; custo += c;
+      if ((r.saida['Pago']||'').toLowerCase() !== 'sim') receber += v;
+    }
+  });
+  const fechadas = data.filter(r => r.saida).length;
+  const ticket = fechadas > 0 ? fat / fechadas : 0;
+
+  document.getElementById('c-total').textContent   = total;
+  document.getElementById('c-aberto').textContent  = abertos;
+  document.getElementById('c-fat').textContent     = fmt(fat);
+  document.getElementById('c-lucro').textContent   = fmt(fat - custo);
+  document.getElementById('c-ticket').textContent  = fmt(ticket);
+  document.getElementById('c-receber').textContent = fmt(receber);
+}
+
+function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+function renderCharts(data) {
+  const COLORS = ['#378ADD','#1D9E75','#EF9F27','#E24B4A','#7F77DD','#D85A30','#85B7EB','#9FE1CB'];
+
+  // OS por mês
+  const mesCounts = {};
+  const mesFat    = {};
+  data.forEach(r => {
+    const d = parseData(r['DATA DE ENTRADA']);
+    if (!d) return;
+    const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    mesCounts[k] = (mesCounts[k] || 0) + 1;
+    const v = r.saida ? (parseFloat(String(r.saida['Valor cobrado']||'0').replace(',','.')) || 0) : 0;
+    mesFat[k] = (mesFat[k] || 0) + v;
+  });
+  const meses = Object.keys(mesCounts).sort();
+  const mesesLabel = meses.map(m => { const [y,mo] = m.split('-'); return ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][parseInt(mo)-1]+'/'+y.slice(2); });
+
+  destroyChart('mes');
+  charts['mes'] = new Chart(document.getElementById('chart-mes'), {
+    type: 'bar',
+    data: { labels: mesesLabel, datasets: [{ label: 'OS', data: meses.map(m => mesCounts[m]), backgroundColor: '#185FA5', borderRadius: 4 }] },
+    options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#85B7EB' }, grid: { color: '#0a1e35' } }, y: { ticks: { color: '#85B7EB' }, grid: { color: '#0a1e35' } } } }
+  });
+
+  destroyChart('fat-mes');
+  charts['fat-mes'] = new Chart(document.getElementById('chart-fat-mes'), {
+    type: 'line',
+    data: { labels: mesesLabel, datasets: [{ label: 'Faturamento', data: meses.map(m => mesFat[m] || 0), borderColor: '#1D9E75', backgroundColor: 'rgba(29,158,117,0.15)', tension: 0.4, fill: true, pointBackgroundColor: '#1D9E75' }] },
+    options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#85B7EB' }, grid: { color: '#0a1e35' } }, y: { ticks: { color: '#85B7EB', callback: v => 'R$'+v }, grid: { color: '#0a1e35' } } } }
+  });
+
+  // Equipamentos
+  const equip = {};
+  data.forEach(r => { const e = r['EQUIPAMENTO']||'Outros'; equip[e] = (equip[e]||0)+1; });
+  const equipSort = Object.entries(equip).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  destroyChart('equipamentos');
+  charts['equipamentos'] = new Chart(document.getElementById('chart-equipamentos'), {
+    type: 'doughnut',
+    data: { labels: equipSort.map(e=>e[0]), datasets: [{ data: equipSort.map(e=>e[1]), backgroundColor: COLORS, borderWidth: 0 }] },
+    options: { plugins: { legend: { labels: { color: '#85B7EB', font: { size: 11 } } } } }
+  });
+
+  // Pagamento
+  const pgto = {};
+  data.forEach(r => { if (r.saida) { const p = r.saida['Forma de pagamento']||'Não informado'; pgto[p] = (pgto[p]||0)+1; } });
+  const pgtoSort = Object.entries(pgto).sort((a,b)=>b[1]-a[1]);
+  destroyChart('pagamento');
+  charts['pagamento'] = new Chart(document.getElementById('chart-pagamento'), {
+    type: 'pie',
+    data: { labels: pgtoSort.map(p=>p[0]), datasets: [{ data: pgtoSort.map(p=>p[1]), backgroundColor: COLORS.slice(2), borderWidth: 0 }] },
+    options: { plugins: { legend: { labels: { color: '#85B7EB', font: { size: 11 } } } } }
+  });
+
+  // Defeitos
+  const def = {};
+  data.forEach(r => { const d = r['DEFEITO']||'Não informado'; def[d] = (def[d]||0)+1; });
+  const defSort = Object.entries(def).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  destroyChart('defeitos');
+  charts['defeitos'] = new Chart(document.getElementById('chart-defeitos'), {
+    type: 'bar',
+    data: { labels: defSort.map(d=>d[0]), datasets: [{ label: 'Ocorrências', data: defSort.map(d=>d[1]), backgroundColor: '#7F77DD', borderRadius: 4 }] },
+    options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#85B7EB' }, grid: { color: '#0a1e35' } }, y: { ticks: { color: '#85B7EB' }, grid: { color: '#0a1e35' } } } }
   });
 }
 
-// Callback JSONP chamado pelo Google
-window.handleData = function(data) {
-  try {
-    const cols = data.table.cols.map(c => c.label);
-    const rows = data.table.rows;
-
-    log('✅ FUNCIONOU via JSONP!\n');
-    log('Colunas (' + cols.length + '): ' + cols.join(' | '));
-    log('Total de linhas: ' + rows.length);
-    log('\nPrimeiras 5 linhas:');
-    rows.slice(0, 5).forEach((row, i) => {
-      const vals = row.c.map(cell => (cell && cell.v != null ? String(cell.v) : '')).join(' | ');
-      log('  [' + (i+1) + '] ' + vals);
-    });
-  } catch(e) {
-    log('❌ Erro ao processar JSONP: ' + e.message);
-    tentarFetch();
+function renderTabela(data) {
+  const tbody = document.getElementById('tabela-os');
+  tbody.innerHTML = '';
+  const sorted = [...data].sort((a,b) => {
+    const da = parseData(a['DATA DE ENTRADA']) || new Date(0);
+    const db = parseData(b['DATA DE ENTRADA']) || new Date(0);
+    return db - da;
+  });
+  sorted.forEach(r => {
+    const s = r.saida;
+    const status = s ? 'Fechado' : 'Aberto';
+    const pago   = s ? (s['Pago']||'-') : '-';
+    const pgto   = s ? (s['Forma de pagamento']||'-') : '-';
+    const valor  = s ? fmt(s['Valor cobrado']||0) : '-';
+    const servico = s ? (s['Serviço realizado']||'-') : '-';
+    tbody.innerHTML += `
+      <tr>
+        <td><b>${r['OS']||'-'}</b></td>
+        <td>${r['CLIENTE']||'-'}</td>
+        <td>${r['EQUIPAMENTO']||'-'}</td>
+        <td>${r['DEFEITO']||'-'}</td>
+        <td>${r['DATA DE ENTRADA']||'-'}</td>
+        <td><span class="badge ${status.toLowerCase()}">${status}</span></td>
+        <td>${servico}</td>
+        <td><b>${valor}</b></td>
+        <td><span class="badge ${pgto.toLowerCase()}">${pgto}</span></td>
+        <td>${pago === 'Sim' ? '✅' : pago === 'Não' ? '⏳' : '-'}</td>
+      </tr>`;
+  });
+  if (sorted.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#85B7EB;padding:30px;">Nenhuma OS encontrada com os filtros aplicados.</td></tr>';
   }
-  log('\n--- Concluído ---');
-  const s = document.getElementById('jsonp-script');
-  if (s) s.remove();
-};
-
-function tentarFetch() {
-  log('\nTentando via fetch...');
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=ENTRADA&tqx=out:csv`;
-  fetch(url)
-    .then(r => r.text())
-    .then(text => {
-      const rows = parseCSV(text);
-      log('✅ FUNCIONOU via fetch!\n');
-      log('Colunas: ' + rows[0].join(' | '));
-      log('Total de linhas de dados: ' + (rows.length - 1));
-      log('\nPrimeiras 5 linhas:');
-      rows.slice(1, 6).forEach((row, i) => {
-        log('  [' + (i+1) + '] ' + row.join(' | '));
-      });
-      log('\n--- Concluído ---');
-    })
-    .catch(e => {
-      log('❌ fetch também falhou: ' + e.message);
-      log('\n--- Concluído ---');
-    });
 }
 
-function testar() {
-  document.getElementById('resultado').textContent = 'Testando...\n';
-
-  const old = document.getElementById('jsonp-script');
-  if (old) old.remove();
-
-  // Tenta JSONP primeiro
-  log('Tentando JSONP...');
-  const script = document.createElement('script');
-  script.id = 'jsonp-script';
-  script.src = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=ENTRADA&tqx=out:json&callback=handleData`;
-  script.onerror = () => {
-    log('JSONP bloqueado. Tentando fetch...');
-    tentarFetch();
-  };
-
-  // Se em 5 segundos não chamar o callback, tenta fetch
-  const timeout = setTimeout(() => {
-    if (document.getElementById('resultado').textContent.includes('Tentando JSONP')) {
-      log('JSONP sem resposta. Tentando fetch...');
-      tentarFetch();
-    }
-  }, 5000);
-
-  window._clearJsonpTimeout = () => clearTimeout(timeout);
-
-  document.body.appendChild(script);
-}
+// Carregar ao iniciar
+window.onload = () => carregarDados();
 </script>
 </body>
 </html>
